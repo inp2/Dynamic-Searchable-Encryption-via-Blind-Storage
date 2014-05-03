@@ -1,46 +1,39 @@
 package edu.CS463.mp3.app;
 
+import android.app.Activity;
+import android.database.Cursor;
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.Toast;
+
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.net.UnknownHostException;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-
-import android.app.Activity;
-import android.os.Bundle;
-import android.os.Environment;
-import android.util.Log;
-import android.view.View;
-import android.view.Menu;
-import android.view.MenuItem;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
-import android.widget.TextView;
-import android.content.Context;
-import android.content.Intent;
 
 
 public class MainActivity extends Activity
 {
+    //Set you VM's server IP here
+    public static final String SERVER_IP = "172.22.150.61";
+    //Set you VM's server port here: make sure the port number
+    //Is sufficiently high for your program to listen on that number
+    public static final int SERVER_PORT = 8888;
+    public static final String LOOKUP_CMD = "LOOKUP";
+    public HashMap<Integer, ArrayList> SmallMap = new HashMap<Integer, ArrayList>();
     private Socket client;
     private PrintWriter output;
     private EditText textField;
     private Button send;
     private Button exit;
     private String message;
-    //Set you VM's server IP here
-   public static final String SERVER_IP="172.22.150.61";
-    //Set you VM's server port here: make sure the port number
-    //Is sufficiently high for your program to listen on that number
-    public static final int SERVER_PORT=8888;
-    public static final String LOOKUP_CMD="LOOKUP";
-    public HashMap<Integer, ArrayList> SmallMap= new HashMap<Integer, ArrayList>();
+    private String text;
 
     public static void Lookup(String keyword, PrintWriter printWriter)
     {
@@ -75,8 +68,16 @@ public class MainActivity extends Activity
              //Get the keyword from the textfield
              String keyword = textField.getText().toString();
              //Connect to the database
-             Intent intent = new Intent(this, SqlDatabaseConnect.class);
-                
+                final SqlDatabaseConnect db = new SqlDatabaseConnect(getApplicationContext());
+                Cursor c;
+                c = db.getDocumentIDs(keyword);
+                //Toast.makeText(getApplicationContext(), c.toString(), Toast.LENGTH_LONG);
+
+                if (c.moveToFirst()) {
+                    text = c.getString(c.getColumnIndex("document_id"));
+                }
+
+                System.out.println(text);
              //Reset the text field to blank
              textField.setText("");
                 try
