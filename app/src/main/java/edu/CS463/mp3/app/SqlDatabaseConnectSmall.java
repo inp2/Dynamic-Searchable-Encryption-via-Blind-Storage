@@ -12,11 +12,10 @@ import java.sql.SQLException;
 /**
  * Created by Nkechinyere on 5/3/14.
  */
-public class SqlDatabaseConnect extends SQLiteOpenHelper {
+public class SqlDatabaseConnectSmall extends SQLiteOpenHelper {
     //The Android's default system path of your application database.
     private static String DB_PATH = "/data/data/edu.CS463.mp3.app/databases/";
     private static String DB_NAME = "small_map.db";
-    private static String TABLE_NAME = "small_map";
     private final Context myContext;
     private SQLiteDatabase myDataBase;
     private SQLiteDatabase myData;
@@ -28,43 +27,36 @@ public class SqlDatabaseConnect extends SQLiteOpenHelper {
      *
      * @param context
      */
-    public SqlDatabaseConnect(Context context) {
+    public SqlDatabaseConnectSmall(Context context) {
         super(context, DB_NAME, null, 1);
         this.myContext = context;
     }
 
     public void openDataBase() throws SQLException {
-//Open the database
+        //Open the database
         String myPath = DB_PATH + DB_NAME;
         myDataBase = SQLiteDatabase.openDatabase(myPath, null, SQLiteDatabase.OPEN_READONLY);
     }
 
     @Override
     public synchronized void close() {
-
-
         if (myDataBase != null)
             myDataBase.close();
         super.close();
-
-
     }
 
 
     @Override
     public void onCreate(SQLiteDatabase db) {
-
     }
 
 
     @Override
     public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion) {
-
-
     }
 
 
-    public Cursor getDocumentIDs(String keyword) {
+    public Cursor getSmallDocumentIDs(String keyword) {
         String myPath = DB_PATH + DB_NAME;
 
         //  myData = SQLiteDatabase.openDatabase(myPath, null, SQLiteDatabase.OPEN_READWRITE);
@@ -77,6 +69,4 @@ public class SqlDatabaseConnect extends SQLiteOpenHelper {
         myData.close();
         return cur;
     }
-
-    ;
 }

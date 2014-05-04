@@ -8,6 +8,8 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.RadioButton;
+import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import java.io.IOException;
@@ -18,8 +20,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 
-public class MainActivity extends Activity
-{
+public class MainActivity extends Activity {
     //Set you VM's server IP here
     public static final String SERVER_IP = "172.22.150.61";
     //Set you VM's server port here: make sure the port number
@@ -27,30 +28,53 @@ public class MainActivity extends Activity
     public static final int SERVER_PORT = 8888;
     public static final String LOOKUP_CMD = "LOOKUP";
     public HashMap<Integer, ArrayList> SmallMap = new HashMap<Integer, ArrayList>();
+    private String keyword;
     private Socket client;
     private PrintWriter output;
     private EditText textField;
+    private RadioGroup radioMethodGroup;
+    private RadioButton radioButton;
+    private RadioButton large;
     private Button send;
-    private Button exit;
-    private String message;
-    private String text;
 
-    public static void Lookup(String keyword, PrintWriter printWriter)
+
+    public void Lookup(String keyword, PrintWriter printWriter, RadioButton button)
     {
-        String documentId="";
-        //For Part-1
-        //USE Local Index (cached) and find the documentID from there
+        String documentId = "";
 
-        //For Part-2
-        //  (a) If index is present in local cache use it to find the documentId
-        // (otherwise) use the download functionality to get the appropriate
-        // documentId from the server
-        //and use them to download the files: this would be done by implementing
-        // SSE.Search functionality
+        if (button.getText().equals("Small")) {
+            //For Part-1
+            //USE Local Index (cached) and find the documentID from there
+            //Connect to the database
+            final SqlDatabaseConnectSmall db = new SqlDatabaseConnectSmall(getApplicationContext());
+            Cursor c;
+            c = db.getSmallDocumentIDs(keyword);
 
-        //Write the message to output stream
-        printWriter.write("LOOKUP " + documentId);
-        //Get the output and show to the user
+            if (c.moveToFirst()) {
+                documentId = c.getString(c.getColumnIndex("document_id"));
+            }
+            //Get the output and show to the user
+            Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
+            System.out.println("Document Id(s): " + documentId);
+            //Write the message to output stream
+            printWriter.write("LOOKUP " + documentId);
+        } else {
+            //For Part-2
+            //  (a) If index is present in local cache use it to find the documentId
+
+            final SqlDatabaseConnectLarge db = new SqlDatabaseConnectLarge(getApplicationContext());
+            Cursor c;
+            c = db.getLargeDocumentIDs(keyword);
+
+            if (c.moveToFirst()) {
+                documentId = c.getString(c.getColumnIndex("document_id"));
+            }
+            System.out.println("Document Id(s): " + documentId);
+            //Get the output and show to the user
+            Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
+            //Write the message to output stream
+            printWriter.write("LOOKUP " + documentId);
+        }
     }
 
     @Override
@@ -58,68 +82,54 @@ public class MainActivity extends Activity
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         //Reference to the text field
-        textField = (EditText)findViewById(R.id.editText);
-        //Reference to the send button
-        send = (Button)findViewById(R.id.button);
+        textField = (EditText) findViewById(R.id.editText);
+        addListenerOnButton();
+    }
 
-       send.setOnClickListener(new View.OnClickListener() {
+    public void addListenerOnButton() {
+        radioMethodGroup = (RadioGroup) findViewById(R.id.radioGroup);
+
+        //Reference to the send button
+        send = (Button) findViewById(R.id.button);
+
+        send.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-             //Get the keyword from the textfield
-             String keyword = textField.getText().toString();
-             //Connect to the database
-                final SqlDatabaseConnect db = new SqlDatabaseConnect(getApplicationContext());
-                Cursor c;
-                c = db.getDocumentIDs(keyword);
-                //Toast.makeText(getApplicationContext(), c.toString(), Toast.LENGTH_LONG);
+                //Get the keyword from the textfield
+                keyword = textField.getText().toString();
 
-                if (c.moveToFirst()) {
-                    text = c.getString(c.getColumnIndex("document_id"));
-                }
+                //Reset the text field to blank
+                textField.setText("");
 
-                System.out.println(text);
-             //Reset the text field to blank
-             textField.setText("");
+                //Get selected radio button from radioGroup
+                int selectedId = radioMethodGroup.getCheckedRadioButtonId();
+                //Find the radiobutton from radio group
+                radioButton = (RadioButton) findViewById(selectedId);
+
                 try
                 {
                     //Connect to server
                     client = new Socket(SERVER_IP, SERVER_PORT);
                     output = new PrintWriter(client.getOutputStream(), true);
-                    Lookup(keyword, output);
+                    Lookup(keyword, output, radioButton);
                     output.flush();
                     output.close();
                     //Closing the connection
                     client.close();
-                }
-                catch (UnknownHostException e)
+                } catch (UnknownHostException e)
                 {
                     e.printStackTrace();
-                }
-                catch(IOException e)
+                } catch (IOException e)
                 {
                     e.printStackTrace();
                 }
             }
-        });
-        //Reference to the send button
-        exit = (Button)findViewById(R.id.button2);
-
-        //Button press event listener
-        exit.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                Toast.makeText(getApplicationContext(),
-                        "Closing", Toast.LENGTH_LONG).show();
-                System.exit(0);
-            }
-
         });
     }
 
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
-        
         // Inflate the menu; this adds items to the action bar if it is present.
         getMenuInflater().inflate(R.menu.main, menu);
         return true;
@@ -136,5 +146,4 @@ public class MainActivity extends Activity
         }
         return super.onOptionsItemSelected(item);
     }
-
 }
