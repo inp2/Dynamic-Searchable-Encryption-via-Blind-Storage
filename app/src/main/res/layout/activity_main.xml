@@ -2,38 +2,51 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="fill_parent"
     android:layout_height="fill_parent"
+    android:orientation="vertical"
+    android:paddingBottom="@dimen/activity_vertical_margin"
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    android:paddingBottom="@dimen/activity_vertical_margin"
-    android:orientation="vertical"
-    tools:context="edu.CS463.mp3.app.MainActivity"
-    android:weightSum="1">
+    android:weightSum="1"
+    tools:context="edu.CS463.mp3.app.MainActivity">
 
-   <EditText
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
+    <EditText
         android:id="@+id/editText"
-        android:layout_weight="0.16"
+        android:layout_width="match_parent"
+        android:layout_height="30dp"
+        android:layout_weight="0.20"
         android:background="#ff3d94a9" />
 
+    <RadioGroup
+        android:id="@+id/radioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/Small"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_weight="0.16"
+            android:checked="true"
+            android:text="@string/radioSmall" />
+
+        <RadioButton
+            android:id="@+id/Large"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center_horizontal"
+            android:layout_weight="0.16"
+            android:checked="false"
+            android:text="@string/radioLarge" />
+    </RadioGroup>
+
     <Button
-        style="?android:attr/buttonStyleSmall"
-        android:layout_width="100dp"
-        android:layout_height="70dp"
-        android:text="@string/sendbtn"
         android:id="@+id/button"
-        android:layout_gravity="center" />
+        style="?android:attr/buttonStyleSmall"
+        android:layout_width="80dp"
+        android:layout_height="80dp"
+        android:layout_gravity="center_horizontal"
+        android:text="@string/sendbtn" />
 
-    <Button
-        android:layout_width="100dp"
-        android:layout_height="70dp"
-        android:text="@string/exitbtn"
-        android:id="@+id/button2"
-        android:layout_gravity="center" />
-
-    <TextView
-        android:id="@+id/text_view"
-        android:layout_width="fill_parent"
-        android:layout_height="fill_parent"/>
 </LinearLayout>

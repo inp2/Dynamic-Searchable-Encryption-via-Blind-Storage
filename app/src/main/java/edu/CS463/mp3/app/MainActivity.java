@@ -53,11 +53,19 @@ public class MainActivity extends Activity {
             if (c.moveToFirst()) {
                 documentId = c.getString(c.getColumnIndex("document_id"));
             }
+            //c.moveToFirst();
+            //if(!c.isAfterLast()) {
             //Get the output and show to the user
             Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
             System.out.println("Document Id(s): " + documentId);
             //Write the message to output stream
             printWriter.write("LOOKUP " + documentId);
+            // }
+            //else
+            //{
+            Toast.makeText(getApplicationContext(), keyword + " does not exist", Toast.LENGTH_SHORT).show();
+            System.out.println(keyword + " does not exist");
+            //}
         } else {
             //For Part-2
             //  (a) If index is present in local cache use it to find the documentId

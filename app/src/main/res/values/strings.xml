@@ -5,6 +5,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="sendbtn">Send</string>
-    <string name="exitbtn">Exit</string>
+    <string name="radioSmall">Small</string>
+    <string name="radioLarge">Large</string>
 
 </resources>
