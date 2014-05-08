@@ -63,7 +63,8 @@ public class SqlDatabaseConnectLarge extends SQLiteOpenHelper {
         myData = SQLiteDatabase.openOrCreateDatabase(file, null);
 
         Cursor cur;
-        cur = myData.rawQuery("select document_id from small_map where keyword='" + keyword + "'", null);
+        String q = "select document_id from small_map where keyword=?";
+        cur = myData.rawQuery(q, new String[] { keyword});
         cur.moveToFirst();
         myData.close();
         return cur;
