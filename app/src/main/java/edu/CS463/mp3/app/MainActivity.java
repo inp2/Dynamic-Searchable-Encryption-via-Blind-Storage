@@ -9,8 +9,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.RadioButton;
-import android.widget.RadioGroup;
 import android.widget.Toast;
 
 import java.io.DataInputStream;
@@ -22,7 +20,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Random;
 
@@ -36,85 +33,52 @@ public class MainActivity extends Activity {
     //Set you VM's server port here: make sure the port number
     //Is sufficiently high for your program to listen on that number
     public static final int SERVER_PORT = 8888;
-    public static final String LOOKUP_CMD = "LOOKUP";
-    private static final String REPLY = "REPLY ";
+    //Set the number of small blocks
     private static final int NUM_SMALL_BLOCKS = 2048 * 4;
-    private static final int NUM_BIG_BLOCKS = 2048 * 4;
     private static final int MIN_BLOCKS = 45;
-    public HashMap<Integer, ArrayList> SmallMap = new HashMap<Integer, ArrayList>();
     private String keyword;
     private Socket client;
     private PrintWriter output;
     private EditText textField;
-    private RadioGroup radioMethodGroup;
-    private RadioButton radioButton;
-    private RadioButton large;
     private Button send;
+    private Button exit;
     private byte[] keyprf = new byte[]{-47, -28, -32, 36, -98, 101, 22, -94, 74, -108, -56, -38, -9, 16, 120, 123};
     private byte[] keyfdprf = new byte[]{-79, -51, 113, 101, -48, 62, 89, 14, -33, -25, 56, -37, -120, -40, -72, -58};
 
 
-    public void Lookup(String keyword, PrintWriter printWriter, RadioButton button) throws Exception
+    public void Download(String keyword, PrintWriter printWriter) throws Exception
     {
         String documentId = "";
 
-        if (button.getText().equals("Small")) {
-            //For Part-1
-            //USE Local Index (cached) and find the documentID from there
-            //Connect to the database
-            final SqlDatabaseConnectSmall db = new SqlDatabaseConnectSmall(getApplicationContext());
-            Cursor c;
-            c = db.getSmallDocumentIDs(keyword);
+        //For Part-1
+        //USE Local Index (cached) and find the documentID from there
+        //For Part-2
+        //  (a) If index is present in local cache use it to find the documentId
+        //Connect to the database
+        final SqlDatabaseConnectSmall db = new SqlDatabaseConnectSmall(getApplicationContext());
+        Cursor c;
+        c = db.getSmallDocumentIDs(keyword);
 
-            if (c.moveToFirst()) {
-                documentId = c.getString(c.getColumnIndex("document_id"));
-            }
-
-            // TODO : handle case where document_id not found
-            DataInputStream reader = new DataInputStream(client.getInputStream());
-
-            for (String document : documentId.split(",")) {
-                // 1 - get list of blocks
-                // 2 - for each block, download block
-                // 3 - aggregate each block and add to list of Strings
-                List<String> block_ids = getBlockIds(document, printWriter, reader);
-                break;
-            }
-
-            printWriter.write("BYE");
-            reader.close();
-
-//            c.moveToFirst();
-//            if(!c.isAfterLast()) {
-//            //Get the output and show to the user
-//            Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
-//            System.out.println("Document Id(s): " + documentId);
-//            //Write the message to output stream
-//            printWriter.write("LOOKUP " + documentId);
-//            printWriter.write("DOWNLD 1");
-            // }
-            //else
-            //{
-//            Toast.makeText(getApplicationContext(), keyword + " does not exist", Toast.LENGTH_SHORT).show();
-//            System.out.println(keyword + " does not exist");
-            //}
-        } else {
-            //For Part-2
-            //  (a) If index is present in local cache use it to find the documentId
-
-            final SqlDatabaseConnectLarge db = new SqlDatabaseConnectLarge(getApplicationContext());
-            Cursor c;
-            c = db.getLargeDocumentIDs(keyword);
-
-            if (c.moveToFirst()) {
-                documentId = c.getString(c.getColumnIndex("document_id"));
-            }
-            System.out.println("Document Id(s): " + documentId);
-            //Get the output and show to the user
-            Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
-            //Write the message to output stream
-            printWriter.write("LOOKUP " + documentId);
+        if (c.moveToFirst()) {
+            documentId = c.getString(c.getColumnIndex("document_id"));
         }
+
+        //Let us know what documents we are looking for
+        System.out.println("Document Id(s): " + documentId);
+        Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
+
+        // TODO : handle case where document_id not found
+        DataInputStream reader = new DataInputStream(client.getInputStream());
+
+        for (String document : documentId.split(",")) {
+            // 1 - get list of blocks
+            // 2 - for each block, download block
+            // 3 - aggregate each block and add to list of Strings
+            List<String> block_ids = getBlockIds(document, printWriter, reader);
+            break;
+        }
+        printWriter.write("BYE");
+        reader.close();
     }
 
     private List<String> getBlockIds(String document, PrintWriter printWriter, DataInputStream reader) throws IOException {
@@ -126,7 +90,6 @@ public class MainActivity extends Activity {
 
         boolean match = false;
         for (Integer index : indexes) {
-
             if (!match) {
                 byte[] block = retrieveBlock(index, printWriter, reader);
                 // check if block belongs to document (first 32 byte of block)
@@ -173,8 +136,6 @@ public class MainActivity extends Activity {
      */
     private List<Integer> generatePseudoRandomSubset(byte[] seed, int n) {
         List<Integer> numbers = new ArrayList<Integer>();
-//        try{
-//            SecureRandom random = SecureRandom.getInstance("SHA1PRNG");
         ByteBuffer wrapped = ByteBuffer.wrap(seed); // big-endian by default
 //                    int number = wrapped.getInt();
         Random random = new Random(wrapped.getLong());
@@ -188,11 +149,6 @@ public class MainActivity extends Activity {
                 count++;
             }
         }
-
-//        } catch (NoSuchAlgorithmException e) {
-//            e.printStackTrace();
-//        }
-
         return numbers;
     }
 
@@ -279,13 +235,7 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
         //Reference to the text field
         textField = (EditText) findViewById(R.id.editText);
-        addListenerOnButton();
-    }
 
-    public void addListenerOnButton() {
-        radioMethodGroup = (RadioGroup) findViewById(R.id.radioGroup);
-
-        //Reference to the send button
         send = (Button) findViewById(R.id.button);
 
         send.setOnClickListener(new View.OnClickListener() {
@@ -297,11 +247,6 @@ public class MainActivity extends Activity {
                 //Reset the text field to blank
                 textField.setText("");
 
-                // Get selected radio button from radioGroup
-                int selectedId = radioMethodGroup.getCheckedRadioButtonId();
-                // Find the radio button from radio group
-                radioButton = (RadioButton) findViewById(selectedId);
-
                 try {
                     new Thread(new Runnable() {
                         @Override
@@ -310,7 +255,7 @@ public class MainActivity extends Activity {
                                 client = new Socket(SERVER_IP, SERVER_PORT);
                                 output = new PrintWriter(client.getOutputStream(), true);
 
-                                Lookup(keyword, output, radioButton);
+                                Download(keyword, output);
 
                                 output.flush();
                                 output.close();
@@ -321,10 +266,37 @@ public class MainActivity extends Activity {
                             }
                         }
                     }).start();
-                    //Connect to server
-
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    System.out.println("CANNOT RUN THREAD" + e.toString());
+                }
+            }
+        });
+
+        exit = (Button) findViewById(R.id.button2);
+
+        exit.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                try {
+                    new Thread(new Runnable() {
+                        @Override
+                        public void run() {
+                            try {
+                                client = new Socket(SERVER_IP, SERVER_PORT);
+                                output = new PrintWriter(client.getOutputStream(), true);
+                                Toast.makeText(getApplicationContext(), "CLOSING", Toast.LENGTH_SHORT).show();
+                                output.write("BYE");
+                                output.flush();
+                                output.close();
+                                //Closing the connection
+                                client.close();
+                            } catch (Exception e) {
+                                System.out.println("ERROR With Connection: " + e.toString());
+                            }
+                        }
+                    }).start();
+                } catch (Exception e) {
+                    System.out.println("CANNOT RUN THREAD" + e.toString());
                 }
             }
         });
