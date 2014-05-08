@@ -1,6 +1,8 @@
 package edu.CS463.mp3.app;
 
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.content.DialogInterface;
 import android.database.Cursor;
 import android.os.Bundle;
 import android.util.Log;
@@ -33,9 +35,11 @@ public class MainActivity extends Activity {
     //Set you VM's server port here: make sure the port number
     //Is sufficiently high for your program to listen on that number
     public static final int SERVER_PORT = 8888;
-    //Set the number of small blocks
-    private static final int NUM_SMALL_BLOCKS = 2048 * 4;
+
     private static final int MIN_BLOCKS = 45;
+    private static final int EXPANSION_PARAM = 4;
+    private static final int NUM_SMALL_BLOCKS = 2048 * EXPANSION_PARAM;
+
     private String keyword;
     private Socket client;
     private PrintWriter output;
@@ -59,44 +63,85 @@ public class MainActivity extends Activity {
         Cursor c;
         c = db.getSmallDocumentIDs(keyword);
 
+        if (c.getCount() == 0) {
+            Log.w("SQLite Query", "No results found");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "No results found", Toast.LENGTH_SHORT).show();
+                }
+            });
+            return;
+        }
+
         if (c.moveToFirst()) {
             documentId = c.getString(c.getColumnIndex("document_id"));
         }
 
         //Let us know what documents we are looking for
         System.out.println("Document Id(s): " + documentId);
-        Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
+//        Toast.makeText(getApplicationContext(), documentId, Toast.LENGTH_SHORT).show();
 
-        // TODO : handle case where document_id not found
         DataInputStream reader = new DataInputStream(client.getInputStream());
 
+        final List<String> files = new ArrayList<String>();
         for (String document : documentId.split(",")) {
-            // 1 - get list of blocks
-            // 2 - for each block, download block
-            // 3 - aggregate each block and add to list of Strings
-            List<String> block_ids = getBlockIds(document, printWriter, reader);
-            break;
+
+            // get list of blocks for a file
+            List<byte[]> blocks = getBlocksOfFile(document, printWriter, reader);
+
+            StringBuilder builder = new StringBuilder();
+            boolean firstBlock = true;
+            for (byte[] block : blocks) {
+                int offset = firstBlock ? 36 : 32;                          // account for sizef header in first block
+                builder.append(new String(block, offset, 4096 - offset));
+                firstBlock = false;
+            }
+            files.add(builder.toString());
         }
+
+        for (String file : files ) {
+            Log.i("FILE RETURNED", file);
+        }
+
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                AlertDialog.Builder builder = new AlertDialog.Builder(MainActivity.this);
+                builder.setTitle("Total Emails: " + files.size());
+                builder.setItems(files.toArray(new String[files.size()]), new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int item) {
+                        dialog.dismiss();
+                    }
+                });
+                AlertDialog alert = builder.create();
+                alert.show();
+            }
+        });
+
         printWriter.write("BYE");
         reader.close();
     }
 
-    private List<String> getBlockIds(String document, PrintWriter printWriter, DataInputStream reader) throws IOException {
+    private List<byte[]> getBlocksOfFile(String document, PrintWriter printWriter, DataInputStream reader) throws IOException {
 
-        Log.e("-----", document);
+        Log.i("DOWNLOADING DOCUMENT:", document);
         byte[] hash = hash(document.getBytes());
         byte[] seed = encrypt(keyfdprf, hash, "ECB", -1);
         List<Integer> indexes = generatePseudoRandomSubset(seed, MIN_BLOCKS);
+        List<byte[]> blocks = new ArrayList<byte[]>();
 
+        // find first block
         boolean match = false;
+        int sizef = 0;
         for (Integer index : indexes) {
             if (!match) {
                 byte[] block = retrieveBlock(index, printWriter, reader);
+                blocks.add(block);
                 // check if block belongs to document (first 32 byte of block)
                 for (int i = 0; i < hash.length; i++) {
                     match = true;
                     if (block[i] != hash[i]) {
-                        Log.e("-----mismtath", "" + block[i] + "      " + hash[i]);
                         i = hash.length;
                         match = false;
                     }
@@ -105,16 +150,50 @@ public class MainActivity extends Activity {
                 if (match) {
                     byte[] arr = {block[hash.length], block[hash.length + 1], block[hash.length + 2], block[hash.length + 3]};
                     ByteBuffer wrapped = ByteBuffer.wrap(arr); // big-endian by default
-                    int number = wrapped.getInt();
-                    Log.e("------", "SIZEF   " + number);
+                    sizef = wrapped.getInt();
+                    Log.i("FOUND FIRST BLOCK", "SIZEF " + sizef);
                     break;
                 }
             }
         }
 
-        // retrieve blocks indexed
+        if (sizef == 0) {
+            Log.w("SIZEF = 0", "Document not found");
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    Toast.makeText(MainActivity.this, "Document not found", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
 
-        return null;
+        int num_download = EXPANSION_PARAM * sizef;
+
+        // need to download at least MIN_BLOCKS
+        if (num_download < MIN_BLOCKS) {
+            num_download = MIN_BLOCKS;
+        }
+
+        indexes = generatePseudoRandomSubset(seed, num_download);
+        blocks.clear();
+        for (Integer index : indexes) {
+            byte[] block = retrieveBlock(index, printWriter, reader);
+            // check if block belongs to document (first 32 byte of block)
+            for (int i = 0; i < hash.length; i++) {
+                match = true;
+                if (block[i] != hash[i]) {
+                    i = hash.length;
+                    match = false;
+                }
+            }
+
+            // only add to blocks list if it belongs to file
+            if (match) {
+                blocks.add(block);
+            }
+        }
+
+        return blocks;
     }
 
     private byte[] retrieveBlock(int blockID, PrintWriter printWriter, DataInputStream reader) throws IOException {
@@ -272,34 +351,34 @@ public class MainActivity extends Activity {
             }
         });
 
-        exit = (Button) findViewById(R.id.button2);
-
-        exit.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    new Thread(new Runnable() {
-                        @Override
-                        public void run() {
-                            try {
-                                client = new Socket(SERVER_IP, SERVER_PORT);
-                                output = new PrintWriter(client.getOutputStream(), true);
-                                Toast.makeText(getApplicationContext(), "CLOSING", Toast.LENGTH_SHORT).show();
-                                output.write("BYE");
-                                output.flush();
-                                output.close();
-                                //Closing the connection
-                                client.close();
-                            } catch (Exception e) {
-                                System.out.println("ERROR With Connection: " + e.toString());
-                            }
-                        }
-                    }).start();
-                } catch (Exception e) {
-                    System.out.println("CANNOT RUN THREAD" + e.toString());
-                }
-            }
-        });
+//        exit = (Button) findViewById(R.id.button2);
+//
+//        exit.setOnClickListener(new View.OnClickListener() {
+//            @Override
+//            public void onClick(View v) {
+//                try {
+//                    new Thread(new Runnable() {
+//                        @Override
+//                        public void run() {
+//                            try {
+//                                client = new Socket(SERVER_IP, SERVER_PORT);
+//                                output = new PrintWriter(client.getOutputStream(), true);
+//                                Toast.makeText(getApplicationContext(), "CLOSING", Toast.LENGTH_SHORT).show();
+//                                output.write("BYE");
+//                                output.flush();
+//                                output.close();
+//                                //Closing the connection
+//                                client.close();
+//                            } catch (Exception e) {
+//                                System.out.println("ERROR With Connection: " + e.toString());
+//                            }
+//                        }
+//                    }).start();
+//                } catch (Exception e) {
+//                    System.out.println("CANNOT RUN THREAD" + e.toString());
+//                }
+//            }
+//        });
     }
 
 
