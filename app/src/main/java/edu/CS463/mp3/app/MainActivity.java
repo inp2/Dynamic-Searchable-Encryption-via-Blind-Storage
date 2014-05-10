@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.database.Cursor;
+import android.database.sqlite.SQLiteDatabase;
 import android.net.TrafficStats;
 import android.os.Build;
 import android.os.Bundle;
@@ -23,7 +24,6 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 import javax.crypto.Cipher;
@@ -49,9 +49,7 @@ public class MainActivity extends Activity {
     private EditText textField;
     private RadioGroup radioMethodGroup;
     private RadioButton radioButton;
-    private RadioButton large;
     private Button send;
-    private Button exit;
     private byte[] keyprf = new byte[]{-47, -28, -32, 36, -98, 101, 22, -94, 74, -108, -56, -38, -9, 16, 120, 123};
     private byte[] keyfdprf = new byte[]{-79, -51, 113, 101, -48, 62, 89, 14, -33, -25, 56, -37, -120, -40, -72, -58};
 
@@ -99,28 +97,45 @@ public class MainActivity extends Activity {
         DataInputStream reader = new DataInputStream(client.getInputStream());
 
         if (radioButton.getText().equals("Large")) {
-            List<String> indexes = getFileContents(printWriter, "-" + (keyword.hashCode() % 15000), reader);
 
-            BufferedReader bf = new BufferedReader(new StringReader(indexes.get(0)));
+            // Check local index
+            File file = new File("/data/data/edu.CS463.mp3.app/databases/emails2.db");
+            SQLiteDatabase myData = SQLiteDatabase.openOrCreateDatabase(file, null);
 
-            String line;
-            StringBuilder docs = new StringBuilder();
-            while ((line = bf.readLine()) != null) {
-                if (line.trim().isEmpty()) {
-                    continue;
+            Cursor cur;
+            String q = "select document_id from emails where keyword=?";
+            cur = myData.rawQuery(q, new String[] { keyword});
+            cur.moveToFirst();
+            myData.close();
+
+            if (cur.getCount() > 0) {
+                documentId = cur.getString(cur.getColumnIndex("document_id"));
+                Log.i("LOADED FROM DB", keyword);
+            } else {
+
+                List<String> indexes = getFileContents(printWriter, "-" + (keyword.hashCode() % 15000), reader);
+
+                BufferedReader bf = new BufferedReader(new StringReader(indexes.get(0)));
+
+                String line;
+                StringBuilder docs = new StringBuilder();
+                while ((line = bf.readLine()) != null) {
+                    if (line.trim().isEmpty()) {
+                        continue;
+                    }
+                    Log.e("LINE-PART2", line);
+                    String[] pair = line.split(" ");
+
+                    if (pair[0].equals(keyword)) {
+                        docs.append(",");
+                        docs.append(pair[1]);
+                    }
                 }
-                Log.e("LINE-PART2", line);
-                String[] pair = line.split(" ");
 
-                if (pair[0].equals(keyword)) {
-                    docs.append(",");
-                    docs.append(pair[1]);
+                if (docs.length() > 0) {
+                    documentId = docs.toString().substring(1);      // remove first ,
+                    Log.e("DOCS-PART2", documentId);
                 }
-            }
-
-            if (docs.length() > 0) {
-                documentId = docs.toString().substring(1);      // remove first ,
-                Log.e("DOCS-PART2", documentId);
             }
         }
 
