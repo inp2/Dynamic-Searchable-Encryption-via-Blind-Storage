@@ -5,6 +5,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.database.Cursor;
+import android.net.TrafficStats;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -368,22 +369,42 @@ public class MainActivity extends Activity {
                         @Override
                         public void run() {
 
-//                            BufferedReader bf = new BufferedReader(new FileReader("/data/data/edu.CS463.mp3.app"));
                             try {
-                                int selectedId = radioMethodGroup.getCheckedRadioButtonId();
-                                radioButton = (RadioButton) findViewById(selectedId);
+                                BufferedReader bf = new BufferedReader(new FileReader("/data/data/edu.CS463.mp3.app/1"));
 
-                                client = new Socket(SERVER_IP, SERVER_PORT);
-                                output = new PrintWriter(client.getOutputStream(), true);
+                                String line;
 
 
-                                Download(keyword, output);
+                                while ((line = bf.readLine()) != null) {
 
-                                output.flush();
-                                output.close();
-                                //Closing the connection
-                                client.close();
-                            } catch (Exception e) {
+                                    if (!line.trim().isEmpty()) {
+                                        try {
+                                            int selectedId = radioMethodGroup.getCheckedRadioButtonId();
+                                            radioButton = (RadioButton) findViewById(selectedId);
+
+
+                                            long totalBytes = TrafficStats.getUidTxBytes(getApplicationInfo().uid) + TrafficStats.getUidRxBytes(getApplicationInfo().uid);
+                                            long startTime = System.currentTimeMillis();
+                                            keyword = line;
+
+                                            client = new Socket(SERVER_IP, SERVER_PORT);
+                                            output = new PrintWriter(client.getOutputStream(), true);
+
+
+                                            Download(keyword, output);
+
+                                            output.flush();
+                                            output.close();
+                                            //Closing the connection
+                                            client.close();
+
+                                            Log.i("TESTRUN", "" + (System.currentTimeMillis() - startTime) + " ms           bytes-" + (TrafficStats.getUidTxBytes(getApplicationInfo().uid) + TrafficStats.getUidRxBytes(getApplicationInfo().uid)) + "            key: " + keyword);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                }
+                            } catch (IOException e) {
                                 e.printStackTrace();
                             }
                         }
