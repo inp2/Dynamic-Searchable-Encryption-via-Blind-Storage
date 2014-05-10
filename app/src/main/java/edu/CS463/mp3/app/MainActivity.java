@@ -1,21 +1,19 @@
 package edu.CS463.mp3.app;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.database.Cursor;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
-import android.widget.EditText;
-import android.widget.Toast;
+import android.widget.*;
 
-import java.io.DataInputStream;
-import java.io.IOException;
-import java.io.PrintWriter;
+import java.io.*;
 import java.net.Socket;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -39,17 +37,22 @@ public class MainActivity extends Activity {
     private static final int MIN_BLOCKS = 45;
     private static final int EXPANSION_PARAM = 4;
     private static final int NUM_SMALL_BLOCKS = 2048 * EXPANSION_PARAM;
+    private static final int NUM_LARGE_BLOCKS = 81920 * EXPANSION_PARAM;
 
     private String keyword;
     private Socket client;
     private PrintWriter output;
     private EditText textField;
+    private RadioGroup radioMethodGroup;
+    private RadioButton radioButton;
+    private RadioButton large;
     private Button send;
     private Button exit;
     private byte[] keyprf = new byte[]{-47, -28, -32, 36, -98, 101, 22, -94, 74, -108, -56, -38, -9, 16, 120, 123};
     private byte[] keyfdprf = new byte[]{-79, -51, 113, 101, -48, 62, 89, 14, -33, -25, 56, -37, -120, -40, -72, -58};
 
 
+    @TargetApi(Build.VERSION_CODES.GINGERBREAD)
     public void Download(String keyword, PrintWriter printWriter) throws Exception
     {
         String documentId = "";
@@ -59,23 +62,25 @@ public class MainActivity extends Activity {
         //For Part-2
         //  (a) If index is present in local cache use it to find the documentId
         //Connect to the database
-        final SqlDatabaseConnectSmall db = new SqlDatabaseConnectSmall(getApplicationContext());
-        Cursor c;
-        c = db.getSmallDocumentIDs(keyword);
+        if (radioButton.getText().equals("Small")) {
+            final SqlDatabaseConnectSmall db = new SqlDatabaseConnectSmall(getApplicationContext());
+            Cursor c;
+            c = db.getSmallDocumentIDs(keyword);
 
-        if (c.getCount() == 0) {
-            Log.w("SQLite Query", "No results found");
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    Toast.makeText(MainActivity.this, "No results found", Toast.LENGTH_SHORT).show();
-                }
-            });
-            return;
-        }
+            if (c.getCount() == 0) {
+                Log.w("SQLite Query", "No results found");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        Toast.makeText(MainActivity.this, "No results found", Toast.LENGTH_SHORT).show();
+                    }
+                });
+                return;
+            }
 
-        if (c.moveToFirst()) {
-            documentId = c.getString(c.getColumnIndex("document_id"));
+            if (c.moveToFirst()) {
+                documentId = c.getString(c.getColumnIndex("document_id"));
+            }
         }
 
         //Let us know what documents we are looking for
@@ -84,21 +89,33 @@ public class MainActivity extends Activity {
 
         DataInputStream reader = new DataInputStream(client.getInputStream());
 
-        final List<String> files = new ArrayList<String>();
-        for (String document : documentId.split(",")) {
+        if (radioButton.getText().equals("Large")) {
+            List<String> indexes = getFileContents(printWriter, "-" + (keyword.hashCode() % 15000), reader);
 
-            // get list of blocks for a file
-            List<byte[]> blocks = getBlocksOfFile(document, printWriter, reader);
+            BufferedReader bf = new BufferedReader(new StringReader(indexes.get(0)));
 
-            StringBuilder builder = new StringBuilder();
-            boolean firstBlock = true;
-            for (byte[] block : blocks) {
-                int offset = firstBlock ? 36 : 32;                          // account for sizef header in first block
-                builder.append(new String(block, offset, 4096 - offset));
-                firstBlock = false;
+            String line;
+            StringBuilder docs = new StringBuilder();
+            while ((line = bf.readLine()) != null) {
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                Log.e("LINE-PART2", line);
+                String[] pair = line.split(" ");
+
+                if (pair[0].equals(keyword)) {
+                    docs.append(",");
+                    docs.append(pair[1]);
+                }
             }
-            files.add(builder.toString());
+
+            if (docs.length() > 0) {
+                documentId = docs.toString().substring(1);      // remove first ,
+                Log.e("DOCS-PART2", documentId);
+            }
         }
+
+        final List<String> files = getFileContents(printWriter, documentId, reader);
 
         for (String file : files ) {
             Log.i("FILE RETURNED", file);
@@ -115,12 +132,32 @@ public class MainActivity extends Activity {
                     }
                 });
                 AlertDialog alert = builder.create();
+                alert.getListView().setFastScrollEnabled(true);
                 alert.show();
             }
         });
 
         printWriter.write("BYE");
         reader.close();
+    }
+
+    private List<String> getFileContents(PrintWriter printWriter, String documentId, DataInputStream reader) throws IOException {
+        List<String> files = new ArrayList<String>();
+        for (String document : documentId.split(",")) {
+
+            // get list of blocks for a file
+            List<byte[]> blocks = getBlocksOfFile(document, printWriter, reader);
+
+            StringBuilder builder = new StringBuilder();
+            boolean firstBlock = true;
+            for (byte[] block : blocks) {
+                int offset = firstBlock ? 36 : 32;                          // account for sizef header in first block
+                builder.append(new String(block, offset, 4096 - offset));
+                firstBlock = false;
+            }
+            files.add(builder.toString());
+        }
+        return files;
     }
 
     private List<byte[]> getBlocksOfFile(String document, PrintWriter printWriter, DataInputStream reader) throws IOException {
@@ -216,13 +253,12 @@ public class MainActivity extends Activity {
     private List<Integer> generatePseudoRandomSubset(byte[] seed, int n) {
         List<Integer> numbers = new ArrayList<Integer>();
         ByteBuffer wrapped = ByteBuffer.wrap(seed); // big-endian by default
-//                    int number = wrapped.getInt();
         Random random = new Random(wrapped.getLong());
-//            Log.w("algo-----", random.());
 
         int count = 0;
         while (count < n) {
-            int index = random.nextInt(NUM_SMALL_BLOCKS);  // TODO : this needs to be size of
+            int num_block = radioButton.getText().equals("Small") ? NUM_SMALL_BLOCKS : NUM_LARGE_BLOCKS;
+            int index = random.nextInt(num_block);
             if (!numbers.contains(index)) {
                 numbers.add(index);
                 count++;
@@ -288,7 +324,7 @@ public class MainActivity extends Activity {
         byte[] output = null;
 
         try {
-            cipher = Cipher.getInstance("AES/" + mode + "/PKCS5Padding");
+            cipher = Cipher.getInstance("AES/" + mode + "/NoPadding");
             SecretKeySpec secretKey = new SecretKeySpec(key, "AES");
             if (mode.equals("CBC") || mode.equals("CTR")) {
                 // create 16 byte IV based on block index
@@ -316,6 +352,7 @@ public class MainActivity extends Activity {
         textField = (EditText) findViewById(R.id.editText);
 
         send = (Button) findViewById(R.id.button);
+        radioMethodGroup = (RadioGroup) findViewById(R.id.radioGroup);
 
         send.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -330,9 +367,15 @@ public class MainActivity extends Activity {
                     new Thread(new Runnable() {
                         @Override
                         public void run() {
+
+//                            BufferedReader bf = new BufferedReader(new FileReader("/data/data/edu.CS463.mp3.app"));
                             try {
+                                int selectedId = radioMethodGroup.getCheckedRadioButtonId();
+                                radioButton = (RadioButton) findViewById(selectedId);
+
                                 client = new Socket(SERVER_IP, SERVER_PORT);
                                 output = new PrintWriter(client.getOutputStream(), true);
+
 
                                 Download(keyword, output);
 
