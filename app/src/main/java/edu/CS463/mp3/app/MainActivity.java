@@ -9,6 +9,7 @@ import android.net.TrafficStats;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
+import android.util.LruCache;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
@@ -22,12 +23,14 @@ import java.security.NoSuchAlgorithmException;
 import java.security.spec.AlgorithmParameterSpec;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.IvParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
+@TargetApi(Build.VERSION_CODES.HONEYCOMB_MR1)
 public class MainActivity extends Activity {
     //Set you VM's server IP here
     public static final String SERVER_IP = "172.22.150.61";
@@ -52,10 +55,15 @@ public class MainActivity extends Activity {
     private byte[] keyprf = new byte[]{-47, -28, -32, 36, -98, 101, 22, -94, 74, -108, -56, -38, -9, 16, 120, 123};
     private byte[] keyfdprf = new byte[]{-79, -51, 113, 101, -48, 62, 89, 14, -33, -25, 56, -37, -120, -40, -72, -58};
 
+    LruCache<String, String> indexCache = new LruCache<String, String>(1000);
+    LruCache<String, String> fileCache = new LruCache<String, String>(1000);
+
 
     @TargetApi(Build.VERSION_CODES.GINGERBREAD)
     public void Download(String keyword, PrintWriter printWriter) throws Exception
     {
+
+
         String documentId = "";
 
         //For Part-1
@@ -119,7 +127,7 @@ public class MainActivity extends Activity {
         final List<String> files = getFileContents(printWriter, documentId, reader);
 
         for (String file : files ) {
-            Log.i("FILE RETURNED", file);
+//            Log.i("FILE RETURNED", file);
         }
 
         runOnUiThread(new Runnable() {
@@ -146,17 +154,25 @@ public class MainActivity extends Activity {
         List<String> files = new ArrayList<String>();
         for (String document : documentId.split(",")) {
 
-            // get list of blocks for a file
-            List<byte[]> blocks = getBlocksOfFile(document, printWriter, reader);
+            if (fileCache.get(document) == null ) {
 
-            StringBuilder builder = new StringBuilder();
-            boolean firstBlock = true;
-            for (byte[] block : blocks) {
-                int offset = firstBlock ? 36 : 32;                          // account for sizef header in first block
-                builder.append(new String(block, offset, 4096 - offset));
-                firstBlock = false;
+                // get list of blocks for a file
+                List<byte[]> blocks = getBlocksOfFile(document, printWriter, reader);
+
+                StringBuilder builder = new StringBuilder();
+                boolean firstBlock = true;
+                for (byte[] block : blocks) {
+                    int offset = firstBlock ? 36 : 32;                          // account for sizef header in first block
+                    builder.append(new String(block, offset, 4096 - offset));
+                    firstBlock = false;
+                }
+                String contents = builder.toString();
+                files.add(contents);
+                fileCache.put(document, contents);
+            } else {
+                Log.i("-----------LOADCACHE", document);
+                files.add(fileCache.get(document));
             }
-            files.add(builder.toString());
         }
         return files;
     }
