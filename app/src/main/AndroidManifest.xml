@@ -2,11 +2,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="edu.CS463.mp3.app" >
 
-    <uses-sdk android:minSdkVersion="10">
-        <uses-permission android:name="android.permission.INTERNET">
+    <uses-sdk android:minSdkVersion="10" />
+    <uses-permission android:name="android.permission.INTERNET">
 
         </uses-permission>
-    </uses-sdk>
 
     <application
         android:allowBackup="true"
