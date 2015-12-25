@@ -1,4 +1,4 @@
-MP3_CS463
+Dynamic Searchable Encryption via Blind Storage
 =========
 
 A privacy-protecting cloud encryption model based off the paper Dynamic Searchable Encryption via Blind Storage.
